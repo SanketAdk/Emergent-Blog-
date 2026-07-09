@@ -28,30 +28,32 @@ export default function Navigation() {
     }
   };
 
-  if (!mounted) return null;
+  if (!mounted) return <div className="h-16" />;
 
   return (
-    <nav className="flex justify-between items-center px-8 py-6 max-w-6xl mx-auto">
-      <Link href="/" className="text-2xl font-semibold tracking-tight hover:opacity-70">
-        Emergent Thoughts
-      </Link>
-      
-      <button
-        onClick={toggleTheme}
-        className="p-2 hover:opacity-70 transition-opacity"
-        aria-label="Toggle dark mode"
-      >
-        {isDark ? (
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-            <circle cx="12" cy="12" r="5"/>
-            <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/>
-          </svg>
-        ) : (
-          <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
-            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-          </svg>
-        )}
-      </button>
+    <nav className="border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-black sticky top-0 z-50">
+      <div className="max-w-2xl mx-auto px-8 py-4 flex justify-between items-center">
+        <Link href="/" className="text-xl font-semibold tracking-tight text-black dark:text-white hover:opacity-70 transition-opacity">
+          Emergent Thoughts
+        </Link>
+        
+        <button
+          onClick={toggleTheme}
+          className="p-2 hover:opacity-70 transition-opacity"
+          aria-label="Toggle dark mode"
+        >
+          {isDark ? (
+            <svg className="w-5 h-5 text-yellow-500" fill="currentColor" viewBox="0 0 24 24">
+              <circle cx="12" cy="12" r="5"/>
+              <path d="M12 1v6m0 6v6M4.22 4.22l4.24 4.24m5.08 5.08l4.24 4.24M1 12h6m6 0h6M4.22 19.78l4.24-4.24m5.08-5.08l4.24-4.24"/>
+            </svg>
+          ) : (
+            <svg className="w-5 h-5 text-gray-700" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+            </svg>
+          )}
+        </button>
+      </div>
     </nav>
   );
 }
