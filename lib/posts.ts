@@ -26,3 +26,21 @@ export function formatDate(date: string): string {
     day: 'numeric'
   });
 }
+import documents from '@/data/documents.json';
+
+export interface Document {
+  id: string;
+  title: string;
+  description: string;
+  date: string;
+  category: string;
+  fileUrl: string;
+}
+
+export function getAllDocuments(): Document[] {
+  return documents.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+}
+
+export function getDocumentById(id: string): Document | undefined {
+  return documents.find(doc => doc.id === id);
+}
