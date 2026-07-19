@@ -4,10 +4,9 @@ import { useState } from 'react';
 import Navigation from '@/components/Navigation';
 import Bio from '@/components/Bio';
 import PostCard from '@/components/PostCard';
-import DocumentCard from '@/components/DocumentCard';
 import TabToggle from '@/components/TabToggle';
-import { getAllPosts } from '@/lib/posts';
-import { getAllDocuments } from '@/lib/posts';
+import DocumentCard from '@/components/DocumentCard';
+import { getAllPosts, getAllDocuments } from '@/lib/posts';
 import Link from 'next/link';
 
 export default function Home() {
