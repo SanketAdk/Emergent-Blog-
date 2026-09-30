@@ -36,7 +36,7 @@ export default function ArchivePage() {
             </h2>
             <ul className="space-y-4">
               {postsByYear[year].map(post => (
-                <li key={post.id}>
+                <li key={post.slug}>
                   <Link href={`/posts/${post.slug}`} className="group">
                     <div className="flex justify-between items-baseline gap-4">
                       <h3 className="text-lg group-hover:opacity-70">
