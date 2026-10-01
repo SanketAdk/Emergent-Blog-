@@ -1,10 +1,14 @@
 import posts from '@/data/posts.json';
 
 export interface Post {
-  slug: string;
+  id: string;
   title: string;
-  date: string;
+  slug: string;
+  excerpt: string;
   content: string;
+  date: string;
+  category: string;
+  featured?: boolean;
 }
 
 export function getAllPosts(): Post[] {
