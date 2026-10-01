@@ -1,6 +1,3 @@
-'use client';
-
-import { useState } from 'react';
 import Navigation from '@/components/Navigation';
 import Bio from '@/components/Bio';
 import PostCard from '@/components/PostCard';
@@ -22,7 +19,7 @@ export default function Home() {
 
         <div>
           {allPosts.map((post) => (
-            <PostCard key={post.slug} post={post} />
+            <PostCard key={post.id} post={post} />
           ))}
         </div>
 
