@@ -17,6 +17,7 @@ select is(
   'author', 'new users default to role author (not admin)');
 
 update public.profiles set role = 'admin' where id = '00000000-0000-0000-0000-0000000000a1';
+update public.posts set featured = false;  -- isolate the 'one featured' test from existing data (rolled back)
 
 insert into public.posts (slug, title, status) values
   ('published-post', 'Published', 'published'),
@@ -33,9 +34,9 @@ select isnt(
 set local role anon;
 select set_config('request.jwt.claims', '{"role":"anon"}', true);
 
-select is((select count(*)::int from public.posts), 1, 'anon sees only published posts');
+select is((select count(*)::int from public.posts where slug in ('published-post','draft-post')), 1, 'anon sees only published posts');
 select is((select count(*)::int from public.posts where slug = 'draft-post'), 0, 'anon cannot see drafts');
-select is((select count(*)::int from public.documents), 1, 'anon sees only published documents');
+select is((select count(*)::int from public.documents where slug in ('published-doc','draft-doc')), 1, 'anon sees only published documents');
 select throws_ok(
   $$ insert into public.posts (slug, title) values ('hack', 'Hack') $$,
   '42501', null, 'anon cannot insert posts');
@@ -58,7 +59,7 @@ set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-0000000000b2","role":"authenticated"}', true);
 
-select is((select count(*)::int from public.posts), 1, 'non-admin sees only published posts');
+select is((select count(*)::int from public.posts where slug in ('published-post','draft-post')), 1, 'non-admin sees only published posts');
 select throws_ok(
   $$ insert into public.posts (slug, title) values ('nope', 'Nope') $$,
   '42501', null, 'non-admin cannot insert posts');
@@ -79,7 +80,7 @@ set local role authenticated;
 select set_config('request.jwt.claims',
   '{"sub":"00000000-0000-0000-0000-0000000000a1","role":"authenticated"}', true);
 
-select is((select count(*)::int from public.posts), 2, 'admin sees drafts too');
+select is((select count(*)::int from public.posts where slug in ('published-post','draft-post')), 2, 'admin sees drafts too');
 select lives_ok(
   $$ insert into public.posts (slug, title, content, status) values ('new-post', 'New', '# Hi', 'draft') $$,
   'admin can insert posts');
