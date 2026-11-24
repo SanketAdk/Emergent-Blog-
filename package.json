@@ -16,7 +16,8 @@
     "db:push": "supabase db push",
     "test": "vitest run",
     "studio:create-admin": "tsx --env-file-if-exists=.env.local scripts/create-admin.ts",
-    "content:import": "tsx --env-file-if-exists=.env.local scripts/import-content.ts"
+    "content:import": "tsx --env-file-if-exists=.env.local scripts/import-content.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -37,6 +38,7 @@
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/postcss": "^4.3.5",
     "@tailwindcss/typography": "^0.5.20",
     "@types/node": "^22.20.5",
