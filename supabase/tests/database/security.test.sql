@@ -1,7 +1,7 @@
 -- Row Level Security & privilege tests. Run with: npm run db:test
 begin;
 create extension if not exists pgtap with schema extensions;
-select plan(25);
+select plan(26);
 
 -- ── Fixtures (as superuser) ─────────────────────────────────────────────────
 insert into auth.users (id, email, raw_user_meta_data, aud, role)
@@ -92,6 +92,9 @@ select isnt_empty(
 select throws_ok(
   $$ insert into public.posts (slug, title) values ('Bad Slug!', 'x') $$,
   '23514', null, 'slug format is enforced by a check constraint');
+select throws_ok(
+  $$ insert into public.posts (slug, title, featured) values ('f1', 'F1', true), ('f2', 'F2', true) $$,
+  '23505', null, 'only one essay can be featured');
 
 -- ── Login guard (as the server's service_role) ──────────────────────────────
 reset role;

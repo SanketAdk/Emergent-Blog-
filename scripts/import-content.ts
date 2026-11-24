@@ -44,7 +44,9 @@ async function main() {
       excerpt: p.excerpt ?? '',
       content: p.content,
       category: p.category ?? null,
-      featured: p.featured ?? false,
+      // The old site never displayed "featured" and the JSON flags every post;
+      // only one may be featured now, so the author chooses it in the Studio.
+      featured: false,
       status: 'published' as const,
       published_at: toTimestamp(p.date),
     })),

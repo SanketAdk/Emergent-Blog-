@@ -46,6 +46,8 @@ comment on column public.posts.content is 'Markdown. Rendered server-side and sa
 create index posts_published_idx on public.posts (published_at desc) where status = 'published';
 create index posts_author_id_idx on public.posts (author_id);
 create index posts_category_idx  on public.posts (category) where status = 'published';
+-- At most one featured essay (enforced by the database, not just the UI).
+create unique index posts_one_featured_idx on public.posts (featured) where featured;
 
 -- ── Documents ───────────────────────────────────────────────────────────────
 create table public.documents (
