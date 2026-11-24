@@ -68,3 +68,21 @@ describe('safeStudioPath (open-redirect protection)', () => {
     expect(safeStudioPath(input)).toBe(expected);
   });
 });
+
+import { PasswordChange } from '@/lib/validation';
+
+describe('PasswordChange', () => {
+  const ok = { current: 'Old-Passw0rd-1', next: 'New-Passw0rd-12', confirm: 'New-Passw0rd-12' };
+  it('accepts a strong, confirmed, different password', () => {
+    expect(PasswordChange.safeParse(ok).success).toBe(true);
+  });
+  it.each([
+    ['too short', { ...ok, next: 'Ab1', confirm: 'Ab1' }],
+    ['no uppercase', { ...ok, next: 'all-lower-pass1', confirm: 'all-lower-pass1' }],
+    ['no digit', { ...ok, next: 'No-Digits-Here-x', confirm: 'No-Digits-Here-x' }],
+    ['mismatch', { ...ok, confirm: 'Different-Passw0rd' }],
+    ['same as current', { current: 'Same-Passw0rd-12', next: 'Same-Passw0rd-12', confirm: 'Same-Passw0rd-12' }],
+  ])('rejects %s', (_label, input) => {
+    expect(PasswordChange.safeParse(input).success).toBe(false);
+  });
+});

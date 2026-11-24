@@ -24,7 +24,9 @@ export default async function StudioLayout({ children }: { children: React.React
             <Link href="/" target="_blank" className="text-muted-foreground">
               View site ↗
             </Link>
-            <span className="text-muted-foreground hidden sm:inline">@{username}</span>
+            <Link href="/studio/account" className="text-muted-foreground hidden sm:inline">
+              @{username}
+            </Link>
             <form action={logout}>
               <button type="submit" className="underline underline-offset-2 cursor-pointer">
                 Log out

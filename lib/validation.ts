@@ -67,3 +67,18 @@ export const UploadRequest = z.object({
 
 export type FieldErrors = Record<string, string[] | undefined>;
 export type FormState = { ok?: boolean; message?: string; fieldErrors?: FieldErrors };
+
+export const PasswordChange = z
+  .object({
+    current: z.string().min(1, 'Enter your current password'),
+    next: z
+      .string()
+      .min(12, 'Use at least 12 characters')
+      .max(200)
+      .regex(/[a-z]/, 'Include a lowercase letter')
+      .regex(/[A-Z]/, 'Include an uppercase letter')
+      .regex(/[0-9]/, 'Include a number'),
+    confirm: z.string(),
+  })
+  .refine((d) => d.next === d.confirm, { path: ['confirm'], message: 'Passwords do not match' })
+  .refine((d) => d.next !== d.current, { path: ['next'], message: 'Choose a different password' });

@@ -38,3 +38,34 @@ test('a username is locked after 5 failed attempts', async ({ page }) => {
   await login(page, 'lockout_target', 'bad-password-final');
   await expect(page.locator('main [role="alert"]')).toContainText('Too many failed attempts');
 });
+
+test('admin can change password (and change it back)', async ({ page }) => {
+  const temp = 'Temporary-Passw0rd-XYZ';
+  await loginAsAdmin(page);
+  await page.goto('/studio/account');
+
+  await page.getByLabel('Current password').fill('not-my-password');
+  await page.getByLabel('New password', { exact: true }).fill(temp);
+  await page.getByLabel('Repeat new password').fill(temp);
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.getByText('Current password is incorrect')).toBeVisible();
+
+  await page.getByLabel('Current password').fill(ADMIN.password);
+  await page.getByLabel('New password', { exact: true }).fill('short');
+  await page.getByLabel('Repeat new password').fill('short');
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.getByText('Use at least 12 characters')).toBeVisible();
+
+  await page.getByLabel('Current password').fill(ADMIN.password);
+  await page.getByLabel('New password', { exact: true }).fill(temp);
+  await page.getByLabel('Repeat new password').fill(temp);
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.getByText('Password changed.')).toBeVisible();
+
+  // Restore the original password for other tests.
+  await page.getByLabel('Current password').fill(temp);
+  await page.getByLabel('New password', { exact: true }).fill(ADMIN.password);
+  await page.getByLabel('Repeat new password').fill(ADMIN.password);
+  await page.getByRole('button', { name: 'Change password' }).click();
+  await expect(page.getByText('Password changed.')).toBeVisible();
+});
