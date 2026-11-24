@@ -6,7 +6,10 @@
 > - The site is deployed on **Vercel**.
 >
 > **Audience:** the owner (SanketAdk) and collaborators.
-> **Progress:** ✅ Stage 0 (author setup) · ✅ Stage 1 (housekeeping, on branch `feat/stage-1-housekeeping`) · ⏳ Stage 2 next.
+> **Progress (24 Nov 2026):**
+> - ✅ Stages 1–7 are implemented and tested on branch `feat/dynamic-site`.
+> - ⏳ Stage 8, going live, follows [`DEPLOYMENT.md`](DEPLOYMENT.md).
+> - Differences from this plan: PDFs use a **private** bucket served through signed URLs; there's a Studio **account page** for password changes; and the login rate limit lives **in Postgres**, so no extra service is needed.
 >
 > **Naming notes:**
 > - Next.js 16 renamed `middleware.ts` to `proxy.ts`.

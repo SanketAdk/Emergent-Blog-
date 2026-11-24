@@ -2,410 +2,313 @@
 
 > *Essays on ideas that emerge from curiosity.*
 
-A minimalist personal blog built with **Next.js (App Router)**, **React 19**, **TypeScript** and **Tailwind CSS**. Content is stored as JSON files in the repo and rendered as static pages, so there is no database or CMS.
+A personal essay blog built with **Next.js 16**, **Supabase** and **Tailwind CSS v4**, deployed on **Vercel**.
+
+- Readers get fast, statically cached pages.
+- The author writes and publishes from a private, password-protected **Studio** at `/studio`.
+- Changes go live within seconds, with no redeploy.
 
 - **Repository:** https://github.com/SanketAdk/Emergent-Blog-
 - **Owner / author:** SanketAdk
-- **Status:** Live, with content added by hand. This README records the work done so far (54 commits, **9 Jul 2026 → 1 Oct 2026**) as a handover for collaborators who will make the site more advanced and dynamic.
+- **Docs:**
+  - [`DEPLOYMENT.md`](DEPLOYMENT.md): go-live runbook
+  - [`STUDIO_GUIDE.md`](STUDIO_GUIDE.md): guide for the author
+  - [`IMPROVEMENTS.md`](IMPROVEMENTS.md): the plan this work followed
+  - [`docs/infrastructure.drawio`](docs/infrastructure.drawio): editable diagrams
 
-> **About the diagrams**
-> - The diagrams below are written in **Mermaid**, which StackEdit and GitHub draw automatically.
-> - The same diagrams are also in [`docs/infrastructure.drawio`](docs/infrastructure.drawio), a file with 4 pages that you can open and edit in **draw.io** (https://app.diagrams.net → *File → Open from → Device*):
->   1. Current Infrastructure
->   2. Code Architecture
->   3. Build & Request Flow
->   4. Proposed Dynamic Architecture
->   5. Supabase Information Flow, the plan in [`IMPROVEMENTS.md`](IMPROVEMENTS.md)
-> - StackEdit cannot draw `.drawio` files inside Markdown. That is why the README uses Mermaid.
+> The diagrams below are **Mermaid**, which StackEdit and GitHub draw automatically.
 
 ---
 
 ## Table of Contents
 
 1. [Tech Stack](#tech-stack)
-2. [Infrastructure Overview](#infrastructure-overview)
-3. [Code Architecture](#code-architecture)
-4. [Build & Request Flow](#build--request-flow)
-5. [Getting Started](#getting-started)
-6. [Project Structure](#project-structure)
-7. [Features Implemented So Far](#features-implemented-so-far)
-8. [Content Model](#content-model)
-9. [Development Timeline](#development-timeline)
-10. [Known Issues & Technical Debt](#known-issues--technical-debt)
-11. [Roadmap & Target Architecture](#roadmap--target-architecture)
-12. [Contributing Workflow](#contributing-workflow)
+2. [Architecture](#architecture)
+3. [How Data Flows](#how-data-flows)
+4. [Security Model](#security-model)
+5. [Getting Started (local development)](#getting-started-local-development)
+6. [Scripts](#scripts)
+7. [Testing](#testing)
+8. [Project Structure](#project-structure)
+9. [Features](#features)
+10. [Database](#database)
+11. [Project History](#project-history)
+12. [Contributing](#contributing)
 
 ---
 
 ## Tech Stack
 
-| Layer        | Technology                                    | Version        |
-|--------------|-----------------------------------------------|----------------|
-| Framework    | Next.js (App Router)                          | `16.2.9`       |
-| UI library   | React / React DOM                             | `^19.0.0`      |
-| Language     | TypeScript (strict mode)                      | `^5.0.0`       |
-| Styling      | Tailwind CSS + PostCSS + Autoprefixer         | `^3.4.19`      |
-| Content      | Local JSON files (`data/*.json`)              | n/a            |
-| Fonts        | System fonts: Georgia/Garamond (body), system sans-serif (headings) | n/a |
-
-The `next.config.ts` settings are `reactStrictMode: true`, `poweredByHeader: false`, `compress: true` and `staticPageGenerationTimeout: 60`.
-
----
-
-## Infrastructure Overview
-
-This is how the project runs today. Content and code are in a single GitHub repository. A push to `main` triggers an automatic build and deploy. Readers get pre-rendered static HTML from a CDN.
-
-```mermaid
-graph LR
-  A["Author - SanketAdk"] -->|edits code| B["Source code: app, components, lib"]
-  A -->|writes essays| C["Content: data/posts.json, data/documents.json"]
-  A -->|uploads| D["PDFs: public /documents"]
-  B -->|git push| E["GitHub repo SanketAdk/Emergent-Blog- branch main"]
-  C -->|git push| E
-  D -->|git push| E
-  E -->|auto deploy on push| F["Hosting: next build"]
-  F -->|outputs| G["Static pages: /, /archive, /posts/slug"]
-  G -->|deployed to| H["CDN / Edge with compression"]
-  H -->|HTTPS| I["Reader browser"]
-  I -.->|saves theme| J["localStorage theme = light or dark"]
-```
-
-> **Note on hosting:** the repo has no provider config file, such as `vercel.json`. Commits like *"Test: Trigger rebuild"* show that pushing to `main` deploys automatically, most likely on **Vercel**. Ask the owner which hosting dashboard and domain the site uses.
-
-### Infrastructure inventory
-
-| Component            | Where it lives                        | Notes |
-|----------------------|---------------------------------------|-------|
-| Source control       | GitHub, `SanketAdk/Emergent-Blog-`    | Single branch `main`. All 54 commits are by SanketAdk. |
-| Build                | `next build` on the hosting platform  | Static Site Generation via `generateStaticParams`. |
-| Content store        | `data/posts.json`, `data/documents.json` | Edited by hand. A redeploy is needed for every change. |
-| Static assets        | `public /documents/*.pdf`             | The folder name has a trailing space, so these files are not served. See Known Issues. |
-| Runtime state        | Browser `localStorage`                | Only the theme preference. |
-| Database / API / Auth | None                                  | The site is fully static. |
-| CI / tests           | None                                  | There are no GitHub Actions workflows. |
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16.4 (App Router, Server Components, Server Actions, `proxy.ts`) |
+| UI | React 19, Tailwind CSS v4, `@tailwindcss/typography`, shadcn design tokens |
+| Database / Auth / Files | Supabase: Postgres with Row Level Security, Supabase Auth, Storage |
+| Supabase client | `@supabase/ssr` (cookie sessions), `@supabase/supabase-js` |
+| Validation | zod (forms and env variables) |
+| Content | Markdown rendered with `react-markdown` + `remark-gfm` + `rehype-sanitize` |
+| Testing | Vitest (unit), pgTAP (database), Playwright (end-to-end) |
+| CI / Hosting | GitHub Actions, Dependabot, Vercel |
 
 ---
 
-## Code Architecture
+## Architecture
 
 ```mermaid
 graph LR
-  subgraph data
-    P1["posts.json - 4 essays"]
-    P2["documents.json - unused"]
+  subgraph Users
+    R["Reader"]
+    A["Author"]
   end
-  subgraph lib
-    L1["posts.ts: Post interface, getAllPosts, getPostBySlug, formatDate"]
+  subgraph Vercel
+    PUB["Public pages: /, /archive, /posts/slug, /category/name, /documents"]
+    CACHE["Static cache + ISR"]
+    PX["proxy.ts: session refresh for /studio"]
+    ST["Studio pages: /studio/*"]
+    SA["Server Actions: login, save, delete, upload ticket"]
   end
-  subgraph app routes
-    R0["layout.tsx: metadata + theme script"]
-    R1["page.tsx = /"]
-    R2["archive/page.tsx = /archive"]
-    R3["posts/slug/page.tsx = /posts/:slug"]
+  subgraph Supabase
+    AUTH["Auth: email + password, sign-ups off"]
+    DB["Postgres + RLS: profiles, posts, documents"]
+    STO["Storage: private documents bucket"]
   end
-  subgraph components
-    C1["Navigation.tsx - client, theme toggle"]
-    C2["Bio.tsx"]
-    C3["PostCard.tsx"]
-    C4["DocumentCard.tsx - unused, broken import"]
-    C5["TabToggle.tsx - unused"]
-  end
-  P1 --> L1
-  L1 --> R1
-  L1 --> R2
-  L1 --> R3
-  R1 --> C1
-  R1 --> C2
-  R1 --> C3
-  R2 --> C1
-  R3 --> C1
-  P2 -.->|not wired| C4
+  GH["GitHub main"] -->|auto deploy| Vercel
+  R -->|HTTPS| PUB
+  PUB --> CACHE
+  CACHE -->|on miss: publishable key| DB
+  R -->|/documents/slug: 60s signed URL| STO
+  A --> PX --> ST
+  ST --> SA
+  SA -->|verify session| AUTH
+  SA -->|writes as the user, RLS| DB
+  A -->|PDF upload with one-time token| STO
+  SA -.->|revalidatePath| CACHE
 ```
-
-| Module | Type | Responsibility |
-|--------|------|----------------|
-| `app/layout.tsx` | Server | Root HTML, site metadata, and an inline script that applies dark mode before the page paints. |
-| `app/page.tsx` | Server | Home page: Navigation, Bio, and a PostCard for each essay. |
-| `app/archive/page.tsx` | Server | Groups essays by year. |
-| `app/posts/[slug]/page.tsx` | Server, SSG | Essay page with metadata, a 404 for unknown slugs, and Previous/Next links. |
-| `components/Navigation.tsx` | **Client** | Sticky header and the light/dark toggle, saved to `localStorage`. |
-| `lib/posts.ts` | Utility | Reads and sorts `posts.json`, finds posts by slug, formats dates. |
 
 ---
 
-## Build & Request Flow
+## How Data Flows
 
-### Build time
-
-```mermaid
-graph LR
-  B1["Read data/posts.json"] --> B2["getAllPosts sorts by date desc"]
-  B2 --> B3["generateStaticParams: one route per slug"]
-  B3 --> B4["Render HTML for /, /archive, /posts/*"]
-  B4 --> B5["Upload to CDN"]
-```
-
-### Request time
+### Reader opens an essay
 
 ```mermaid
 sequenceDiagram
   participant U as Reader
-  participant CDN as CDN
-  participant H as head script
-  participant N as Navigation component
-  participant LS as localStorage
-  U->>CDN: GET /posts/some-slug
-  CDN-->>U: pre-rendered static HTML
-  U->>H: run inline script
-  H->>LS: read theme
-  H-->>U: add dark class if needed, no flash
-  U->>N: React hydrates client component
-  U->>N: click theme toggle
-  N->>LS: save light or dark
+  participant V as Vercel
+  participant DB as Supabase Postgres
+  U->>V: GET /posts/my-essay
+  alt page is cached
+    V-->>U: cached HTML
+  else first visit or after an edit
+    V->>DB: select published post by slug, publishable key
+    Note over DB: RLS returns published rows only
+    DB-->>V: row
+    V-->>U: HTML from sanitised Markdown, then cached
+  end
+```
+
+### Author publishes an essay
+
+```mermaid
+sequenceDiagram
+  participant A as Author in Studio
+  participant SA as Server Action savePost
+  participant AU as Supabase Auth
+  participant DB as Postgres
+  participant C as Vercel cache
+  A->>SA: title, slug, markdown, Publish
+  SA->>AU: getUser from cookie
+  SA->>DB: check profile role = admin
+  SA->>SA: zod validation
+  SA->>DB: insert or update as the user
+  Note over DB: RLS is_admin check
+  SA->>C: revalidatePath for the whole site
+  SA-->>A: Published, with a link to the live essay
+```
+
+### Studio login
+
+```mermaid
+sequenceDiagram
+  participant A as Author
+  participant L as login Server Action
+  participant G as studio_login_guard, service role only
+  participant AU as Supabase Auth
+  A->>L: username + password
+  L->>G: allowed? and email for username
+  alt locked: 5 failures per user or 20 per IP in 15 min
+    L-->>A: Too many failed attempts
+  else allowed
+    L->>AU: signInWithPassword
+    L->>G: record attempt
+    L-->>A: redirect to /studio, or the generic Invalid username or password
+  end
 ```
 
 ---
 
-## Getting Started
+## Security Model
 
-**Prerequisites:** Node.js 20+ and npm.
+| Layer | Control |
+|-------|---------|
+| Database | **RLS on every table.** Anonymous users read *published* rows only. Writes require `profiles.role = 'admin'`. Nobody can change their own role. Grants are least-privilege. |
+| Storage | **Private bucket.** PDFs are served through 60-second signed URLs, and only for published documents. Uploads are admin-only, PDF-only and at most 10 MB. |
+| Auth | Public sign-ups are disabled. Passwords need 12+ characters with mixed case and a digit. Accounts lock after repeated failures. Errors are generic, so they don't reveal which usernames exist. `?next=` redirects are restricted to `/studio` paths. |
+| Server | `requireAdmin()` re-validates the session with `getUser()` on every Studio page and action. Writes run as the user, so RLS applies. |
+| Secrets | `SUPABASE_SECRET_KEY` is server-only (`import 'server-only'`) and used only by the login guard and the admin scripts. All `.env*` files are git-ignored except `.env.example`. |
+| Content | Markdown is sanitised, which removes scripts and `javascript:` links. |
+| HTTP | CSP, HSTS, `X-Frame-Options: DENY`, `nosniff`, `Referrer-Policy`, `Permissions-Policy` and COOP. The Studio is `noindex` and `private, no-store`. |
+
+---
+
+## Getting Started (local development)
+
+**Prerequisites:** Node.js 22+, Docker.
 
 ```bash
 git clone https://github.com/SanketAdk/Emergent-Blog-.git
 cd Emergent-Blog-
-npm install
-npm run dev        # http://localhost:3000
+npm ci
+
+npm run db:start          # local Supabase in Docker (ports 54421-54429)
+npx supabase status -o env
 ```
 
-| Script          | Purpose                          |
-|-----------------|----------------------------------|
-| `npm run dev`   | Start the local dev server       |
-| `npm run build` | Create a production build        |
-| `npm run start` | Serve the production build       |
-| `npm run lint`  | Run Next.js linting              |
+Create `.env.local` from the template and fill it with the **local** values printed above: `API_URL`, `PUBLISHABLE_KEY` and `SECRET_KEY`.
+
+```bash
+cp .env.example .env.local
+```
+
+Then seed the data and start the dev server:
+
+```bash
+npm run content:import                                              # original essays + PDFs
+npm run studio:create-admin -- --username me --email me@example.com
+npm run dev                                                         # http://localhost:3000, Studio at /studio
+```
+
+> If `.env.local` holds **production** keys, the scripts refuse to write unless you pass `--confirm`.
+
+---
+
+## Scripts
+
+| Script | Purpose |
+|--------|---------|
+| `dev` / `build` / `start` | Next.js development server, production build, production server |
+| `lint` / `typecheck` | ESLint 9 / `tsc --noEmit` |
+| `test` | Vitest unit tests |
+| `test:e2e` | Playwright tests (needs a build, local Supabase, `E2E_USERNAME` and `E2E_PASSWORD`) |
+| `db:start` / `db:stop` / `db:reset` | Start, stop or reset the local Supabase stack. Reset re-applies all migrations. |
+| `db:test` | pgTAP database security tests |
+| `db:types` | Regenerate `types/database.types.ts` |
+| `db:push` | Apply migrations to the linked (production) project |
+| `content:import` | Import `supabase/seed-data` (JSON + PDFs). Idempotent. |
+| `studio:create-admin` | Create an admin or reset their password (hidden prompt) |
+
+---
+
+## Testing
+
+| Suite | Count | What it covers |
+|-------|-------|----------------|
+| `npm test` | 24 | Slugs, form validation, upload limits, password rules, open-redirect guard |
+| `npm run db:test` | 26 | RLS for anonymous, non-admin and admin users; privilege escalation; login guard and lockout; constraints |
+| `npm run test:e2e` | 14 | Public pages; PDFs; security headers; login security; publish → live → unpublish → delete; PDF upload; XSS sanitising; password change |
+
+CI (`.github/workflows/ci.yml`) runs all of them on every pull request against a throwaway local Supabase.
 
 ---
 
 ## Project Structure
 
 ```
-Emergent-Blog-/
+├── actions/                  # Server Actions: auth, posts, documents, account
 ├── app/
-│   ├── layout.tsx            # Root layout, metadata, no-flash dark-mode script
-│   ├── globals.css           # Tailwind layers + global typography & theme colors
-│   ├── page.tsx              # Home: navigation, bio, list of essays
-│   ├── archive/page.tsx      # All essays grouped by year
-│   └── posts/[slug]/page.tsx # Single essay page (statically generated)
-├── components/
-│   ├── Navigation.tsx        # Sticky header + light/dark theme toggle (client)
-│   ├── Bio.tsx               # Intro paragraph on the home page
-│   ├── PostCard.tsx          # Essay preview card
-│   ├── DocumentCard.tsx      # Document card (unused, broken import)
-│   └── TabToggle.tsx         # Essays/Documents tab switcher (unused)
-├── data/
-│   ├── posts.json            # Essay content
-│   └── documents.json        # Document/PDF metadata
-├── docs/
-│   └── infrastructure.drawio # Editable draw.io diagrams (4 pages)
-├── lib/posts.ts              # Post type + data helpers
-├── public /documents/        # PDFs (folder name has a trailing space)
-├── next.config.ts
-├── tailwind.config.ts        # darkMode: "class"
-├── postcss.config.mjs
-└── tsconfig.json             # "@/*" path alias → project root
+│   ├── page.tsx              # Home (featured + essays)
+│   ├── archive/              # Essays by year + category chips
+│   ├── posts/[slug]/         # Essay page (SSG + on-demand)
+│   ├── category/[name]/      # Essays in a category
+│   ├── documents/            # Documents list + [slug] signed-URL redirect
+│   ├── studio/(auth)/login   # Studio login
+│   ├── studio/(dashboard)/   # Dashboard, essays, documents, account (admin only)
+│   ├── sitemap.ts · robots.ts · rss.xml/
+│   └── layout.tsx · error.tsx · not-found.tsx
+├── components/               # Site components + components/studio/*
+├── lib/
+│   ├── env.ts · env.server.ts   # zod-validated env (public / server-only)
+│   ├── supabase/                # server, client, public (cookie-free), admin, middleware
+│   ├── queries.ts               # cached public reads
+│   ├── auth.ts · auth-paths.ts  # requireAdmin, redirect guard
+│   ├── validation.ts · format.ts · markdown.tsx
+├── proxy.ts                  # session refresh for /studio only
+├── scripts/                  # content import, create admin
+├── supabase/
+│   ├── migrations/           # schema, RLS, storage, login guard
+│   ├── tests/database/       # pgTAP
+│   ├── seed-data/            # original posts.json, documents.json, PDFs
+│   └── config.toml
+├── tests/unit · tests/e2e
+├── types/                    # content.ts, generated database.types.ts
+└── .github/                  # CI + Dependabot
 ```
 
 ---
 
-## Features Implemented So Far
+## Features
 
-### Pages & routing
-- **Home (`/`):** sticky navigation, a single-paragraph bio, the full list of essays (newest first), an empty-state message and a link to the archive.
-- **Essay page (`/posts/[slug]`)**
-  - Pre-rendered at build time with `generateStaticParams`.
-  - Sets a per-post `<title>` with `generateMetadata`.
-  - Returns a 404 through `notFound()` when the slug is unknown.
-  - Splits the body into paragraphs on blank lines.
-  - Has **Previous / Next** links between essays.
-- **Archive (`/archive`):** every essay grouped by **year**, with a total essay count.
+**Public site**
+- Home page with a featured essay, reading time and categories.
+- Archive by year, and category pages.
+- Essays written in Markdown, with Newer/Older navigation.
+- Documents page with PDFs and external links.
+- Light/dark mode with no flash of the wrong theme.
+- SEO: per-essay Open Graph and Twitter metadata, canonical URLs, `sitemap.xml`, `rss.xml` and `robots.txt`.
 
-### UI / UX
-- **Light/dark mode**
-  - The toggle in the navigation bar saves the choice to `localStorage`.
-  - With no saved choice, the site follows the OS setting.
-  - The theme is applied before the page paints, so there is no flash of the wrong theme.
-- **Editorial typography:** serif body text, sans-serif headings, a narrow reading column and smooth scrolling.
-- **Responsive** layout built with Tailwind utility classes.
-
-### Content
-- **4 essays** published (Investing ×3, Philosophy ×1):
-  - *What Actually Makes me think* (2025-06-24)
-  - *The Need For A Mental GYM* (2026-07-13)
-  - *Investing In Early Business* (2026-09-10)
-  - *Are We Facing Economic Slowdown Or Just Being More Cautious?* (2026-09-12)
-- **2 documents** listed in `documents.json`: a Cyclical Businesses Reference PDF and a test entry linking to a Google Doc.
-
-### Documents section (started, then rolled back)
-In July 2026 a feature was built to show **Essays** and **Documents** as tabs on the home page. It used `documents.json`, document helper functions in `lib/posts.ts`, and the `TabToggle` and `DocumentCard` components.
-
-In late September the home page and `lib/posts.ts` were changed back to essays only. The components and data files are still in the repo but nothing uses them.
+**Studio** (`/studio`)
+- Username + password login.
+- Dashboard with counts and recent edits.
+- Essay editor: live Markdown preview, automatic slug, categories, a featured toggle, drafts and publishing, an unsaved-changes warning, and a confirmation before deleting.
+- Documents: direct PDF upload or an external link, with publish/draft.
+- Account page with a secure password change.
 
 ---
 
-## Content Model
+## Database
 
 ```mermaid
 graph LR
-  subgraph Post fields
-    PA["id: string"]
-    PB["title: string"]
-    PC["slug: string - used in URL"]
-    PD["excerpt: string"]
-    PE["content: string - paragraphs split by blank line"]
-    PF["date: ISO string"]
-    PG["category: string - not displayed yet"]
-    PH["featured: boolean optional - not used yet"]
-  end
-  subgraph Document fields
-    DA["id: string"]
-    DB["title: string"]
-    DC["description: string"]
-    DD["date: ISO string"]
-    DE["category: string"]
-    DF["fileUrl: /documents/file.pdf or external URL"]
-  end
+  U["auth.users"] -->|1 to 1, created by trigger| P["profiles: username, role"]
+  P -->|author_id| PO["posts: slug, title, excerpt, content, category, featured, status, published_at"]
+  P -->|author_id| D["documents: slug, title, description, file_path or external_url, status, published_at"]
+  D -->|file_path| S["storage: documents bucket, private"]
+  LA["private.login_attempts"] -.-> G["studio_login_guard / studio_record_login"]
 ```
 
-**Adding an essay today:** add an object to `data/posts.json`, commit, and push to `main`. The hosting platform rebuilds the static pages.
+The migrations in `supabase/migrations/` are the source of truth. Constraints enforce:
+- a valid slug format
+- exactly one source per document (a file or a link)
+- `published_at` whenever something is published
+- at most one featured essay
 
 ---
 
-## Development Timeline
+## Project History
 
-```mermaid
-gantt
-  title Emergent Thoughts - commit history 2026
-  dateFormat YYYY-MM-DD
-  section Foundation
-  Initial redesign, nav, styles, bio      :done, f1, 2026-07-09, 1d
-  Essay content updates                   :done, f2, 2026-07-13, 1d
-  section Documents feature
-  documents.json, TabToggle, DocumentCard :done, d1, 2026-07-19, 1d
-  Test document and PDFs                  :done, d2, 2026-07-21, 2d
-  Next.js static file config              :done, d3, 2026-07-26, 1d
-  section Content
-  New investing essays in posts.json      :done, c1, 2026-09-10, 20d
-  section Refactor
-  Simplify then restore Post format       :done, r1, 2026-09-27, 5d
-  Bio rewrite, archive uses slug          :done, r2, 2026-09-30, 1d
-  Restore full Post interface, rebuild    :done, r3, 2026-10-01, 1d
-```
-
-| Date (2026)    | Milestone |
-|----------------|-----------|
-| **Jul 9**      | Initial commit: *"Emergent Thoughts redesigned"*. Navigation, global styles and bio were adjusted. |
-| **Jul 13**     | Essay content updated. |
-| **Jul 19**     | **Documents feature built:** data file, helper functions, `TabToggle`, `DocumentCard`, home page tabs, and PDFs. |
-| **Jul 21–22**  | Test document added; `documents.json` updated. |
-| **Jul 26**     | Next.js config adjusted for serving static files. |
-| **Sep 10–29**  | Several content updates to `posts.json`. |
-| **Sep 27**     | Post format simplified, then reverted. Home page went back to essays only. |
-| **Sep 30**     | Single-paragraph bio; the archive now links by `slug`. |
-| **Oct 1**      | Full `Post` interface restored; rebuild triggered. |
+| Date | Milestone |
+|------|-----------|
+| Jul 2026 | Static Next.js blog: essays in `data/posts.json`; a documents feature was started and then rolled back. |
+| Sep–Oct 2026 | Essays added by editing JSON. |
+| 24 Nov 2026 | The author added Supabase client helpers and shadcn/ui (`ed34b6a`). That commit didn't build, because it mixed Tailwind v3 and v4. |
+| 24 Nov 2026 | **Stage 1** (PR #1): build fixed (Tailwind v4), Next.js security upgrade, `.gitignore` / `.env.example`, cleanup. |
+| 24 Nov 2026 | **Stages 2–7**: Supabase schema + RLS, the public site on Supabase, Studio login and content management, SEO, CSP, tests and CI. |
 
 ---
 
-## Known Issues & Technical Debt
+## Contributing
 
-> **Update (24 Nov 2026), Stage 1:**
-> - Issues 1, 2, 3, 4, 5 and 7 are fixed.
-> - The project now uses Next.js 16.4.6, which fixes a critical security advisory, and Tailwind CSS v4, which the author's shadcn/ui setup needs. Before this, the build failed on `border-border`.
-> - ESLint and a `typecheck` script were added.
-> - Baseline security headers are set.
-> - `.env.example` was added.
-> - Issue 6 (`prose`) is planned for Stage 3. See [`IMPROVEMENTS.md`](IMPROVEMENTS.md).
-
-1. **`DocumentCard.tsx` imports a type that no longer exists.** It imports `Document` from `@/lib/posts`, which no longer exports it. This can break `next build` type checking.
-2. **The `public ` folder name has a trailing space.** Next.js only serves files from `public/`, so links to the PDFs will **404**. Rename the folder to `public/`.
-3. **The PDF file names contain spaces and odd dots** (`Ielts .pdf`, `Test Document..pdf`). Use URL-safe names instead.
-4. **`.DS_Store` files are committed, and there is no `.gitignore`.**
-5. **`getAllPosts()` sorts the imported JSON array in place.** Use `[...posts].sort(...)` instead.
-6. **The `prose` classes do nothing.** `@tailwindcss/typography` is not installed.
-7. **Theme initialisation is duplicated** in both `layout.tsx` and `Navigation.tsx`. `Navigation` also renders an empty placeholder until it mounts, which causes a small layout shift.
-8. **Post bodies are plain text only.** There is no Markdown, links or images.
-9. **`category` and `featured` are stored but never shown.**
-10. **No SEO extras:** no Open Graph metadata, sitemap, RSS feed or favicon.
-11. **No tests or CI.**
-
----
-
-## Roadmap & Target Architecture
-
-The proposed architecture after the roadmap is complete:
-
-```mermaid
-graph LR
-  AU["Author"] -->|publishes| CMS["Headless CMS or Admin UI: Sanity, Notion or Supabase"]
-  AU -->|writes| MDX["MDX files: content/posts"]
-  MDX --> GH["GitHub PRs + Actions CI: lint, build, test"]
-  GH -->|deploy| APP["Next.js app on Vercel"]
-  CMS -->|webhook revalidate| APP
-  subgraph Planned app features
-    S1["Static pages + ISR"]
-    S2["API routes: search, views, newsletter"]
-    S3["sitemap, robots, RSS, OG images"]
-    S4["/documents route with PDF viewer"]
-  end
-  APP --- S1
-  S2 --> DBX["Database: views, subscribers"]
-  S2 --> EXT["3rd-party: Giscus, Resend, Plausible"]
-  RD["Reader"] -->|HTTPS| S1
-```
-
-### Phase 1: Stabilise
-- [ ] Fix Known Issues 1–6 (build safety, `public/` folder, `.gitignore`).
-- [ ] Add ESLint + Prettier and a GitHub Actions workflow that runs `lint` and `build` on every pull request.
-
-### Phase 2: Richer content
-- [ ] Move essays to **MDX** files with front-matter (`gray-matter` + `next-mdx-remote`).
-- [ ] Add `@tailwindcss/typography` for article styling.
-- [ ] Show categories/tags and reading time, and add category pages.
-- [ ] Bring back the **Documents** section as a `/documents` route with an inline PDF viewer.
-- [ ] Add a "Featured" essay to the home page.
-
-### Phase 3: Dynamic features
-- [ ] **Search** across essays (Fuse.js or an API route).
-- [ ] **Headless CMS or database**, so the owner can publish without editing JSON. Use ISR or on-demand revalidation so new posts appear without a full redeploy.
-- [ ] **Comments** (Giscus) and reactions.
-- [ ] **Newsletter sign-up** (Buttondown or Resend).
-- [ ] **View counts** and analytics (Vercel Analytics or Plausible).
-
-### Phase 4: Polish & reach
-- [ ] SEO: Open Graph and Twitter cards, dynamic OG images, `sitemap.ts`, `robots.ts` and an **RSS feed**.
-- [ ] An About page, social links and a contact form.
-- [ ] Accessibility pass and a Lighthouse score of 95+.
-
----
-
-## Contributing Workflow
-
-```mermaid
-graph LR
-  A["Branch from main: feat/name"] --> B["Small commits: Add / Fix / Update"]
-  B --> C["npm run build locally"]
-  C --> D["Open Pull Request"]
-  D --> E["Review by owner"]
-  E --> F["Merge to main"]
-  F --> G["Auto deploy to live site"]
-```
-
-1. Create a feature branch from `main`: `git checkout -b feat/<short-name>`.
-2. Keep commits small and descriptive, using the existing style: `Add: …`, `Fix: …`, `Update: …`.
-3. Run `npm run build` locally before pushing.
-4. Open a Pull Request against `main`, with screenshots for UI changes.
-5. Don't push straight to `main`; the live site rebuilds from it.
-
----
-
-*README written on 24 Nov 2026 from the repository's code and commit history. Editable diagrams: [`docs/infrastructure.drawio`](docs/infrastructure.drawio).*
+1. Create a branch from `main`: `git checkout -b feat/<name>`.
+2. Database changes go in a new migration (`npx supabase migration new <name>`), never in an edited one. Then run `npm run db:reset && npm run db:test && npm run db:types`.
+3. Before pushing, run `npm run lint && npm run typecheck && npm test`.
+4. Open a pull request. CI and the Vercel preview must pass before you merge.
