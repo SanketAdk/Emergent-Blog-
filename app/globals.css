@@ -11,6 +11,8 @@
   --font-sans: var(--font-sans);
   --font-heading: var(--font-sans);
   --font-serif: Georgia, Garamond, serif;
+  /* Heading font, shared by h1–h6 and the home page tabs */
+  --font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -137,7 +139,7 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-family: var(--font-display);
     font-weight: 500;
     color: #000000;
   }

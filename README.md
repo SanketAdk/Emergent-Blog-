@@ -215,7 +215,7 @@ npm run dev                                                         # http://loc
 |-------|-------|----------------|
 | `npm test` | 24 | Slugs, form validation, upload limits, password rules, open-redirect guard |
 | `npm run db:test` | 26 | RLS for anonymous, non-admin and admin users; privilege escalation; login guard and lockout; constraints |
-| `npm run test:e2e` | 14 | Public pages; PDFs; security headers; login security; publish → live → unpublish → delete; PDF upload; XSS sanitising; password change |
+| `npm run test:e2e` | 16 | Public pages and landing tabs; PDFs; security headers; login security; publish → live → unpublish → delete; PDF upload; XSS sanitising; password change |
 
 CI (`.github/workflows/ci.yml`) runs all of them on every pull request against a throwaway local Supabase.
 
@@ -259,7 +259,8 @@ CI (`.github/workflows/ci.yml`) runs all of them on every pull request against a
 ## Features
 
 **Public site**
-- Home page with a featured essay, reading time and categories.
+- Home page with a featured essay and **Essays / Documents tabs**. The navigation bar shows only the title and the theme toggle.
+- `/archive` and `/documents` still work for existing links and the sitemap, but the landing page doesn't link to them.
 - Archive by year, and category pages.
 - Essays written in Markdown, with Newer/Older navigation.
 - Documents page with PDFs and external links.

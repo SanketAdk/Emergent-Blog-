@@ -1,8 +1,9 @@
 import Navigation from '@/components/Navigation';
 import Bio from '@/components/Bio';
-import PostCard, { PostMeta } from '@/components/PostCard';
+import { PostMeta } from '@/components/PostCard';
+import HomeTabs from '@/components/HomeTabs';
 import SiteFooter from '@/components/SiteFooter';
-import { getPublishedPosts } from '@/lib/queries';
+import { getPublishedDocuments, getPublishedPosts } from '@/lib/queries';
 import Link from 'next/link';
 
 // Static page, regenerated on demand when the Studio publishes (revalidatePath),
@@ -10,7 +11,7 @@ import Link from 'next/link';
 export const revalidate = 3600;
 
 export default async function Home() {
-  const posts = await getPublishedPosts();
+  const [posts, documents] = await Promise.all([getPublishedPosts(), getPublishedDocuments()]);
   const featured = posts.find((p) => p.featured);
   const rest = featured ? posts.filter((p) => p.id !== featured.id) : posts;
 
@@ -32,19 +33,9 @@ export default async function Home() {
         </section>
       )}
 
-      <section className="max-w-2xl mx-auto px-8 py-8">
-        <h2 className="text-3xl font-light mb-8 pb-8 border-b border-gray-200 dark:border-gray-800">Essays</h2>
-        <div>
-          {rest.map((post) => (
-            <PostCard key={post.id} post={post} />
-          ))}
-        </div>
-        {posts.length === 0 && (
-          <p className="text-gray-600 dark:text-gray-400 text-center py-12">No essays yet. Check back soon.</p>
-        )}
-      </section>
+      <HomeTabs posts={rest} documents={documents} hasFeatured={!!featured} />
 
-      <SiteFooter />
+      <SiteFooter showArchive={false} />
     </main>
   );
 }

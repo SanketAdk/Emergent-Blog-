@@ -37,13 +37,6 @@ export default function Navigation() {
           Emergent Thoughts
         </Link>
 
-        <div className="flex items-center gap-4 sm:gap-6">
-          <Link href="/archive" className="hidden sm:inline text-sm text-gray-600 dark:text-gray-400">
-            Archive
-          </Link>
-          <Link href="/documents" className="hidden sm:inline text-sm text-gray-600 dark:text-gray-400">
-            Documents
-          </Link>
         <button
           type="button"
           onClick={toggleTheme}
@@ -61,7 +54,6 @@ export default function Navigation() {
             </svg>
           )}
         </button>
-        </div>
       </div>
     </nav>
   );
