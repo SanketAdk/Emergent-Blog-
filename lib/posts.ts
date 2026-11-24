@@ -1,4 +1,4 @@
-import posts from '@/data/posts.json';
+import posts from '@/supabase/seed-data/posts.json';
 import type { Post } from '@/types/content';
 
 export type { Post };
