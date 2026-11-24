@@ -42,7 +42,7 @@ export default function ArchivePage() {
                       <h3 className="text-lg group-hover:opacity-70">
                         {post.title}
                       </h3>
-                      <span className="text-sm text-gray-600 dark:text-gray-400 flex-shrink-0">
+                      <span className="text-sm text-gray-600 dark:text-gray-400 shrink-0">
                         {formatDate(post.date)}
                       </span>
                     </div>

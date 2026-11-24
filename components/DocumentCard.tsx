@@ -1,4 +1,5 @@
-import { Document, formatDate } from '@/lib/posts';
+import { formatDate } from '@/lib/posts';
+import type { Document } from '@/types/content';
 
 export default function DocumentCard({ doc }: { doc: Document }) {
   return (
