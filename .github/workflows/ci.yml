@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Lint, typecheck, unit, database & end-to-end tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      NEXT_TELEMETRY_DISABLED: 1
+      E2E_USERNAME: ci_admin
+      E2E_PASSWORD: Ci-Only-Passw0rd-123
+      STUDIO_ADMIN_PASSWORD: Ci-Only-Passw0rd-123
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+      # Local, throwaway Supabase in Docker (never touches production).
+      - name: Start Supabase
+        run: npm run db:start
+      - name: Database security tests (RLS / privileges)
+        run: npm run db:test
+      - name: Check generated types are up to date
+        run: |
+          npm run -s db:types
+          git diff --exit-code types/database.types.ts
+
+      - name: Export local Supabase env
+        run: |
+          npx supabase status -o env > /tmp/sb.env
+          get() { grep "^$1=" /tmp/sb.env | cut -d= -f2- | tr -d '"'; }
+          echo "NEXT_PUBLIC_SUPABASE_URL=$(get API_URL)" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=$(get PUBLISHABLE_KEY)" >> "$GITHUB_ENV"
+          echo "::add-mask::$(get SECRET_KEY)"
+          echo "SUPABASE_SECRET_KEY=$(get SECRET_KEY)" >> "$GITHUB_ENV"
+          echo "NEXT_PUBLIC_SITE_URL=http://localhost:3200" >> "$GITHUB_ENV"
+
+      - name: Seed content and Studio admin
+        run: |
+          npm run content:import
+          npm run studio:create-admin -- --username ci_admin --email ci-admin@example.com
+
+      - run: npm run build
+
+      - name: End-to-end tests
+        run: |
+          npx playwright install --with-deps chromium
+          npm run test:e2e
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-traces
+          path: test-results/
+          retention-days: 7

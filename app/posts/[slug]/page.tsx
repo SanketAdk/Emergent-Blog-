@@ -1,82 +1,95 @@
-import Navigation from '@/components/Navigation';
-import { getAllPosts, getPostBySlug, formatDate } from '@/lib/posts';
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import Navigation from '@/components/Navigation';
+import SiteFooter from '@/components/SiteFooter';
+import { PostMeta } from '@/components/PostCard';
+import { Markdown } from '@/lib/markdown';
+import { getPostBySlug, getPublishedPosts } from '@/lib/queries';
+
+export const revalidate = 3600;
+// Posts published after the last deploy are rendered on first request, then cached.
+export const dynamicParams = true;
 
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
 
 export async function generateStaticParams() {
-  return getAllPosts().map((post) => ({ slug: post.slug }));
+  const posts = await getPublishedPosts();
+  return posts.map((post) => ({ slug: post.slug }));
 }
 
-export async function generateMetadata({ params }: PageProps) {
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
-  return post ? { title: `${post.title} - Emergent Thoughts` } : {};
+  const post = await getPostBySlug(slug);
+  if (!post) return {};
+  return {
+    title: post.title,
+    description: post.excerpt,
+    alternates: { canonical: `/posts/${post.slug}` },
+    openGraph: {
+      type: 'article',
+      title: post.title,
+      description: post.excerpt,
+      url: `/posts/${post.slug}`,
+      publishedTime: post.publishedAt,
+      modifiedTime: post.updatedAt,
+      tags: post.category ? [post.category] : undefined,
+    },
+    twitter: { card: 'summary', title: post.title, description: post.excerpt },
+  };
 }
 
 export default async function PostPage({ params }: PageProps) {
   const { slug } = await params;
-  const post = getPostBySlug(slug);
-
+  const [post, all] = await Promise.all([getPostBySlug(slug), getPublishedPosts()]);
   if (!post) notFound();
 
-  const allPosts = getAllPosts();
-  const idx = allPosts.findIndex(p => p.slug === slug);
-  const prev = idx > 0 ? allPosts[idx - 1] : null;
-  const next = idx < allPosts.length - 1 ? allPosts[idx + 1] : null;
+  const idx = all.findIndex((p) => p.slug === slug);
+  const newer = idx > 0 ? all[idx - 1] : null;
+  const older = idx > -1 && idx < all.length - 1 ? all[idx + 1] : null;
 
   return (
     <main className="min-h-screen bg-white dark:bg-black">
       <Navigation />
-      
+
       <article className="max-w-2xl mx-auto px-8 py-16">
         <Link href="/" className="text-sm text-gray-600 dark:text-gray-400 hover:opacity-70 mb-8 inline-block">
           ← Back to essays
         </Link>
 
-        <h1 className="text-4xl font-light mb-4 mt-8">
-          {post.title}
-        </h1>
+        <h1 className="text-4xl font-light mb-4 mt-8">{post.title}</h1>
+        <PostMeta post={post} className="mb-12 pb-8 border-b border-gray-200 dark:border-gray-800" />
 
-        <p className="text-gray-600 dark:text-gray-400 mb-12 pb-8 border-b border-gray-200 dark:border-gray-800">
-          {formatDate(post.date)}
-        </p>
-
-        <div className="prose dark:prose-invert max-w-none mb-16">
-          {post.content.split('\n\n').map((para, i) => (
-            <p key={i} className="text-lg text-gray-700 dark:text-gray-300 mb-6 leading-relaxed">
-              {para}
-            </p>
-          ))}
+        <div className="prose prose-lg prose-neutral dark:prose-invert max-w-none mb-16 prose-headings:font-medium prose-p:leading-relaxed">
+          <Markdown>{post.content}</Markdown>
         </div>
 
-        {(prev || next) && (
-          <div className="border-t border-gray-200 dark:border-gray-800 pt-12">
+        {(newer || older) && (
+          <nav aria-label="More essays" className="border-t border-gray-200 dark:border-gray-800 pt-12">
             <div className="grid grid-cols-2 gap-8">
-              {prev ? (
-                <Link href={`/posts/${prev.slug}`} className="group">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">← Previous</p>
-                  <h3 className="text-lg font-medium group-hover:opacity-70">
-                    {prev.title}
-                  </h3>
+              {newer ? (
+                <Link href={`/posts/${newer.slug}`} className="group">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">← Newer</p>
+                  <h3 className="text-lg font-medium group-hover:opacity-70">{newer.title}</h3>
                 </Link>
-              ) : <div />}
-              
-              {next ? (
-                <Link href={`/posts/${next.slug}`} className="group text-right">
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Next →</p>
-                  <h3 className="text-lg font-medium group-hover:opacity-70">
-                    {next.title}
-                  </h3>
+              ) : (
+                <div />
+              )}
+              {older ? (
+                <Link href={`/posts/${older.slug}`} className="group text-right">
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">Older →</p>
+                  <h3 className="text-lg font-medium group-hover:opacity-70">{older.title}</h3>
                 </Link>
-              ) : <div />}
+              ) : (
+                <div />
+              )}
             </div>
-          </div>
+          </nav>
         )}
       </article>
+      <SiteFooter />
     </main>
   );
 }
