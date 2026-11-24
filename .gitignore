@@ -1,4 +1,44 @@
-.env.local
+# ── Dependencies ─────────────────────────────
 node_modules/
+.pnp
+.pnp.*
+
+# ── Next.js / build output ───────────────────
 .next/
-.env*.local
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# ── Environment variables ────────────────────
+# Real secrets live in .env / .env.local and must never be committed.
+# Only .env.example (placeholders) is tracked.
+.env
+.env.*
+!.env.example
+
+# ── Vercel ───────────────────────────────────
+.vercel/
+
+# ── Supabase CLI (local dev state) ───────────
+supabase/.temp/
+supabase/.branches/
+
+# ── Logs & debug ─────────────────────────────
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# ── Testing ──────────────────────────────────
+coverage/
+playwright-report/
+test-results/
+
+# ── OS / editor ──────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
